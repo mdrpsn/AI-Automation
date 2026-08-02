@@ -1,0 +1,220 @@
+{
+  "name": "01 - Missed-Call Follow-Up",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "missed-call-lead",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Missed Call / Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "callerName",
+              "value": "={{ $json.body.callerName || $json.callerName || 'there' }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "callerPhone",
+              "value": "={{ $json.body.callerPhone || $json.callerPhone }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "callTime",
+              "value": "={{ $json.body.callTime || $json.callTime || $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "businessName",
+              "value": "={{ $json.body.businessName || $json.businessName || 'Our business' }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "businessType",
+              "value": "={{ $json.body.businessType || $json.businessType || 'home-service' }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "serviceRequested",
+              "value": "={{ $json.body.serviceRequested || $json.serviceRequested || '' }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "node-normalize",
+      "name": "Normalize Lead Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 200, system: `You are drafting a short SMS (under 320 characters) on behalf of ${$json.businessName}, a ${$json.businessType} business, replying to a missed call or inquiry from a potential customer.\\n\\nRules:\\n- Sound like a real person from the business texting quickly, not a bot or a template.\\n- Briefly acknowledge you missed their call/message.\\n- If a service was mentioned, reference it specifically. If not, ask what they need help with.\\n- If a service was mentioned, offer 2-3 realistic time windows to call back; otherwise just ask them to reply or call.\\n- No emojis. No exclamation-point stacking. No \\\"we value your business\\\" filler.\\n- Output ONLY the SMS text. No preamble, no quotation marks, nothing else.`, messages: [ { role: 'user', content: `Caller name: ${$json.callerName}\\nPhone: ${$json.callerPhone}\\nCall time: ${$json.callTime}\\nService requested: ${$json.serviceRequested || 'not specified'}` } ] }) }}",
+        "options": {}
+      },
+      "id": "node-claude-request",
+      "name": "Draft Follow-Up Message (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Anthropic API Key (x-api-key)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const claudeResponse = $input.first().json;\nconst draftMessage = claudeResponse.content?.[0]?.text?.trim()\n  || \"Sorry we missed you — could you let us know a good time to call you back?\";\n\nconst lead = $('Normalize Lead Data').first().json;\n\nreturn [{\n  json: {\n    ...lead,\n    draftMessage\n  }\n}];"
+      },
+      "id": "node-extract-draft",
+      "name": "Extract Draft Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "from": "REPLACE_WITH_TWILIO_NUMBER",
+        "to": "={{ $json.callerPhone }}",
+        "message": "={{ $json.draftMessage }}"
+      },
+      "id": "node-twilio-sms",
+      "name": "Send SMS to Lead",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1140, 120],
+      "credentials": {
+        "twilioApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": { "mode": "list", "value": "primary" },
+        "start": "={{ $now.plus({ hours: 1 }).toISO() }}",
+        "end": "={{ $now.plus({ hours: 1, minutes: 30 }).toISO() }}",
+        "additionalFields": {
+          "summary": "=Follow-up hold: {{ $json.callerName }} ({{ $json.serviceRequested || 'service TBD' }})",
+          "description": "=Auto-created lead hold from missed-call automation.\nPhone: {{ $json.callerPhone }}\nCall time: {{ $json.callTime }}"
+        }
+      },
+      "id": "node-calendar-hold",
+      "name": "Create Tentative Booking Hold",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [1140, 300],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "mode": "id", "value": "REPLACE_WITH_SHEET_ID" },
+        "sheetName": { "mode": "name", "value": "Leads" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.callerName }}",
+            "Phone": "={{ $json.callerPhone }}",
+            "Service": "={{ $json.serviceRequested }}",
+            "CallTime": "={{ $json.callTime }}",
+            "FollowUpSent": "={{ $json.draftMessage }}"
+          }
+        }
+      },
+      "id": "node-sheets-log",
+      "name": "Log Lead to CRM Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1140, 480],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "automations@REPLACE_WITH_DOMAIN.com",
+        "toEmail": "REPLACE_WITH_OWNER_EMAIL",
+        "subject": "=New lead auto-followed-up: {{ $json.callerName }}",
+        "text": "=A missed-call lead was automatically texted back.\n\nName: {{ $json.callerName }}\nPhone: {{ $json.callerPhone }}\nService: {{ $json.serviceRequested || 'not specified' }}\nCall time: {{ $json.callTime }}\n\nMessage sent:\n{{ $json.draftMessage }}"
+      },
+      "id": "node-email-notify",
+      "name": "Notify Business Owner",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1140, 660],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Missed Call / Lead Webhook": {
+      "main": [[{ "node": "Normalize Lead Data", "type": "main", "index": 0 }]]
+    },
+    "Normalize Lead Data": {
+      "main": [[{ "node": "Draft Follow-Up Message (Claude)", "type": "main", "index": 0 }]]
+    },
+    "Draft Follow-Up Message (Claude)": {
+      "main": [[{ "node": "Extract Draft Text", "type": "main", "index": 0 }]]
+    },
+    "Extract Draft Text": {
+      "main": [[
+        { "node": "Send SMS to Lead", "type": "main", "index": 0 },
+        { "node": "Create Tentative Booking Hold", "type": "main", "index": 0 },
+        { "node": "Log Lead to CRM Sheet", "type": "main", "index": 0 },
+        { "node": "Notify Business Owner", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
