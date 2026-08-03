@@ -30,19 +30,14 @@ Home-service businesses (HVAC, plumbing, electrical, cleaning, salons, contracto
 
 ## Setup
 
+Full step-by-step checklist with time estimates and known gotchas (Twilio trial restrictions, Google OAuth setup): [SETUP.md](SETUP.md).
+
+Short version:
 1. Import `workflow.json` into n8n (Workflows → Import from File).
-2. Add credentials in n8n:
-   - **Anthropic**: HTTP Header Auth credential, header name `x-api-key`, value = your Claude API key. Attach it to the "Draft Follow-Up Message (Claude)" node.
-   - **Twilio**: Account SID + Auth Token, and a Twilio phone number capable of sending SMS.
-   - **Google**: OAuth2 credential with Calendar and Sheets scopes.
-   - **Email**: SMTP credential (or swap the Email node for Gmail/Slack if the client prefers).
-3. Replace the placeholders in the workflow:
-   - Twilio `from` number
-   - Google Calendar ID (defaults to `primary`)
-   - Google Sheet ID and tab name in the "Log Lead to CRM Sheet" node
-   - Owner notification email address
-4. Activate the workflow to get a production webhook URL, or use the test webhook URL during setup.
-5. Test end-to-end without a real phone call: POST the contents of `sample-payloads/missed-call.json` to the webhook URL.
+2. Add credentials in n8n: Anthropic (HTTP Header Auth), Twilio, Google OAuth2 (Calendar + Sheets scopes), SMTP.
+3. Replace the placeholders in the workflow (Twilio number, Sheet ID, owner email).
+4. Test with `sample-payloads/missed-call.json` against the webhook's test URL before activating.
+5. Activate the workflow to get a production webhook URL, then point the real trigger source at it.
 
 ## Demo script (for a client call or a recorded walkthrough)
 
