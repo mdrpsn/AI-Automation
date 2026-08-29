@@ -6,8 +6,9 @@ competitive against wait fairness so nobody sits out repeatedly — and showing
 the organizer *why* each foursome was chosen, so the call can be defended to a
 player who thinks they got skipped.
 
-Status: **the engine and the organizer console both work.** You can run a real
-session on one device today. The live player view and cloud sync are not built.
+Status: **the engine, the organizer console and the live player view all
+work.** You can run a real session today: the organizer drives it from one
+device, players watch the queue on their phones by scanning a QR.
 
 ## Layout
 
@@ -27,8 +28,11 @@ packages/web/             Next.js organizer console
   src/lib/session.ts      session state + reducer over the engine
   src/lib/useSession.ts   state, undo, live proposals
   src/lib/storage.ts      persistence boundary (IndexedDB today)
-  src/components/         courts, queue, check-in, roster, summary
+  src/lib/publicSnapshot.ts  what players are allowed to see
+  src/lib/liveStore.ts    server-side relay for published sessions
+  src/components/         courts, queue, check-in, roster, share, summary
   e2e/smoke.mjs           drives a whole session in a real browser
+  e2e/live.mjs            organizer + player, two browsers at once
 ```
 
 ## Commands
@@ -38,7 +42,7 @@ npm run dev       # organizer console at localhost:3000
 npm test          # everything (93 tests)
 npm run sim       # fairness invariants
 npm run scorecard # print the fairness table for the current weights
-npm run e2e       # browser smoke test (needs the dev server running)
+npm run e2e       # browser tests, console + live view (needs the dev server)
 npm run check     # typecheck + test
 ```
 
@@ -61,6 +65,49 @@ reload picks up exactly where it left off — wait times included.
 
 Session state stores raw timestamps rather than derived counters, so nothing
 depends on a ticking timer being alive to stay correct.
+
+## The live player view
+
+Press **Start sharing** and the console produces a QR code. Players scan it and
+get a read-only page: who is on each court with a running clock, the queue in
+order, roughly how long their wait is, and a clear **up next** marker — which is
+the question they were going to ask you anyway.
+
+The page has no buttons and no inputs at all. There is nothing to argue with and
+no way to act, which is deliberate; an e2e test asserts it stays that way.
+
+**What players can see is a hand-built projection**, not a filtered copy of the
+session (`src/lib/publicSnapshot.ts`). Adding a field to `SessionState` must
+never silently publish it, so private data — "keep apart from" pairs, rating
+movement, internal ids, the publish secret — has nowhere to travel through.
+Ratings are off by default and are a per-session opt-in: showing people their
+assigned number tends to start arguments. Tests serialize the whole payload and
+assert the private fields are absent.
+
+**Read and write are separate secrets.** The share token is public by design —
+everyone who scans the QR has it — so it cannot also authorize publishing, or
+any player could rewrite the queue. A distinct 32-character publish secret,
+which never leaves the organizer's device, does that. "New link" rotates the
+share token and the old QR stops working immediately.
+
+Publishing is fire-and-forget and never blocks the console. If the network is
+down the organizer keeps running the session and players just see slightly
+stale data until the next publish lands — the right trade at a venue with bad
+wifi.
+
+The player page **long-polls** rather than using SSE or WebSockets. On a patchy
+venue network a long-lived stream that quietly dies looks exactly like "nothing
+has changed", whereas a poll that returns and re-issues heals itself on the next
+pass.
+
+### Deploying it
+
+`liveStore` keeps published snapshots in memory, which is correct for a single
+long-running Node process — `next start` on a VPS, Fly, Railway, or a laptop at
+the venue. **On a serverless platform each instance would hold its own copy**,
+so a deploy there needs a shared adapter (Postgres, Redis, Supabase) behind the
+`LiveStore` interface. Nothing in it is a source of truth: the organizer's
+device is authoritative, so losing the relay costs a refresh, not a session.
 
 ## Design
 
@@ -165,11 +212,12 @@ silently absorbing it.
 
 ## Next
 
-- **Live player view** — a share link and QR that lets players watch the queue
-  and their own position from their phones. This is the piece that needs a
-  backend; `SessionStore` in `src/lib/storage.ts` is the seam a Supabase
-  adapter plugs into without the UI changing.
-- **Cross-session ratings** — the engine already banks rating evidence between
-  sessions, but nothing persists a club roster yet, so each session starts from
-  a fresh check-in.
-- **Sync across devices**, once there is a backend to sync to.
+- **A persistent club roster.** This is the significant gap. The engine banks
+  rating evidence across sessions by design — one night is about nine games,
+  nowhere near enough to separate a mis-rating from a hot streak — but nothing
+  persists a roster yet, so that banked evidence is discarded at the end of
+  every session and ratings will never actually move. Until this exists, the
+  rating review screen will keep correctly reporting "no changes proposed"
+  forever.
+- **A shared `LiveStore` adapter**, if this is deployed serverless.
+- **Sync across organizer devices**, so a co-organizer can help run a session.

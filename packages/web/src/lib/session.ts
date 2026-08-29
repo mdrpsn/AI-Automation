@@ -66,6 +66,14 @@ export interface CompletedMatch extends MatchRecord {
 export interface SessionState {
   id: string;
   name: string;
+  /** Read-only link handed to players. Rotatable. */
+  shareToken: string;
+  /** Write secret held only by the organizer's device. Never leaves it. */
+  publishToken: string;
+  /** Off by default: showing players their assigned rating starts arguments. */
+  publicShowRatings: boolean;
+  /** Whether this session is being published for players to watch. */
+  published: boolean;
   status: 'setup' | 'live' | 'ended';
   createdAt: number;
   startedAt: number | null;
@@ -92,6 +100,21 @@ export function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${idCounter.toString(36)}${rand}`;
 }
 
+const TOKEN_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
+
+/**
+ * A share token is the only thing standing between a stranger and a session's
+ * live page, so it comes from a real CSPRNG rather than Math.random. 22
+ * characters of this alphabet is ~110 bits.
+ */
+export function newToken(length = 22): string {
+  const bytes = new Uint8Array(length);
+  globalThis.crypto.getRandomValues(bytes);
+  let out = '';
+  for (const byte of bytes) out += TOKEN_ALPHABET[byte % TOKEN_ALPHABET.length];
+  return out;
+}
+
 export function createSession(
   name: string,
   courtCount: number,
@@ -101,6 +124,10 @@ export function createSession(
   return {
     id: newId('s'),
     name,
+    shareToken: newToken(),
+    publishToken: newToken(32),
+    publicShowRatings: false,
+    published: false,
     status: 'setup',
     createdAt: now,
     startedAt: null,
@@ -170,6 +197,9 @@ export function toSnapshot(state: SessionState, now: number): Snapshot {
 
 export type Action =
   | { type: 'session/rename'; name: string }
+  | { type: 'session/publish'; on: boolean }
+  | { type: 'session/showRatings'; on: boolean }
+  | { type: 'session/rotateShareToken' }
   | { type: 'session/preset'; preset: PresetName }
   | { type: 'session/spreadCap'; cap: number }
   | { type: 'session/start'; now: number }
@@ -221,6 +251,19 @@ export function reduce(state: SessionState, action: Action): SessionState {
   switch (action.type) {
     case 'session/rename':
       next.name = action.name;
+      return next;
+
+    case 'session/publish':
+      next.published = action.on;
+      return next;
+
+    case 'session/showRatings':
+      next.publicShowRatings = action.on;
+      return next;
+
+    case 'session/rotateShareToken':
+      // Revoking a link that got shared too widely. The old one 404s at once.
+      next.shareToken = newToken();
       return next;
 
     case 'session/preset':

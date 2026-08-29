@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PlayerId } from '@openplay/engine';
 import type { SessionState } from '@/lib/session';
 import { useProposals, useSessionController } from '@/lib/useSession';
+import { usePublish } from '@/lib/usePublish';
 import { ActiveCourtCard, ClosedCourtCard, ProposalCard } from './CourtCard';
 import { QueueList, useQueueRows } from './Queue';
 import { CheckIn } from './CheckIn';
 import { RosterPanel } from './RosterPanel';
+import { ShareSheet } from './ShareSheet';
 import { SummaryPanel } from './SummaryPanel';
 import { Empty } from './primitives';
 
-type Tab = 'courts' | 'queue' | 'roster';
+type Tab = 'courts' | 'queue' | 'roster' | 'share';
 
 /** Keeps the organizer's phone awake — it locking mid-rotation is infuriating. */
 function useWakeLock(active: boolean) {
@@ -51,6 +53,14 @@ export function Console({ initial }: { initial: SessionState }) {
   const rows = useQueueRows(state, now);
   const [tab, setTab] = useState<Tab>('courts');
   const [swapping, setSwapping] = useState<{ courtId: string; outId: PlayerId } | null>(null);
+
+  // Players see who the engine has queued up next, not just who is on court —
+  // "you're next" is the single most-asked question at an open play.
+  const upNextIds = useMemo(
+    () => (proposals.result?.matches ?? []).flatMap((m) => [...m.teamA, ...m.teamB]),
+    [proposals.result],
+  );
+  const publishStatus = usePublish(state, upNextIds);
 
   useWakeLock(state.status === 'live');
 
@@ -130,7 +140,7 @@ export function Console({ initial }: { initial: SessionState }) {
         </div>
 
         <nav className="flex border-t border-surface-line">
-          {(['courts', 'queue', 'roster'] as const).map((key) => (
+          {(['courts', 'queue', 'roster', 'share'] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -143,6 +153,9 @@ export function Console({ initial }: { initial: SessionState }) {
             >
               {key}
               {key === 'queue' && waitingCount > 0 ? ` (${waitingCount})` : ''}
+              {key === 'share' && publishStatus === 'live' ? (
+                <span className="ml-1 inline-block h-2 w-2 rounded-full bg-go align-middle" />
+              ) : null}
             </button>
           ))}
         </nav>
@@ -273,6 +286,10 @@ export function Console({ initial }: { initial: SessionState }) {
             </section>
             <RosterPanel state={state} dispatch={dispatch} />
           </div>
+        ) : null}
+
+        {tab === 'share' ? (
+          <ShareSheet state={state} dispatch={dispatch} status={publishStatus} />
         ) : null}
       </main>
     </div>
