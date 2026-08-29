@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "noEmit": false,
+    // src/ stays free of Node APIs so the engine runs in the browser; the
+    // simulation harness is a Node-only dev tool and uses console.
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "sim/**/*.ts", "test/**/*.ts"]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "openplay",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Skill-aware court matching for pickleball open play",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run packages/engine/test",
+    "sim": "vitest run packages/engine/sim --reporter verbose",
+    "scorecard": "vite-node packages/engine/sim/report.ts",
+    "typecheck": "tsc --build --force",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
