@@ -1,6 +1,7 @@
 import {
   buildHardConstraints,
   bestSplit,
+  bestSplitCost,
   cachedPairCost,
   makeCostCache,
   matchCost,
@@ -93,9 +94,9 @@ function partialCost(players: readonly PlayerState[], ctx: CostContext): number 
 }
 
 function groupCost(players: readonly PlayerState[], ctx: CostContext): number {
-  if (players.length === 4) {
-    return bestSplit(players as unknown as Foursome, ctx).breakdown.total;
-  }
+  // Allocation-free for the common case: the improvement loop calls this
+  // hundreds of thousands of times and only ever wants the number.
+  if (players.length === 4) return bestSplitCost(players, ctx);
   return partialCost(players, ctx);
 }
 
@@ -361,18 +362,20 @@ function improve(
             const p2 = g2.players[j]!;
             if (immovable.has(p2.id)) continue;
 
-            const a = g1.players.slice();
-            const b = g2.players.slice();
-            a[i] = p2;
-            b[j] = p1;
-            const gain = before - (groupCost(a, ctx) + groupCost(b, ctx));
+            g1.players[i] = p2;
+            g2.players[j] = p1;
+            const gain = before - (groupCost(g1.players, ctx) + groupCost(g2.players, ctx));
+            g1.players[i] = p1;
+            g2.players[j] = p2;
+
             if (gain > bestGain) {
               bestGain = gain;
+              const move = { g1, g2, i, j, p1, p2 };
               apply = () => {
-                g1.players = a;
-                g2.players = b;
-                costs.delete(g1.court.id);
-                costs.delete(g2.court.id);
+                move.g1.players[move.i] = move.p2;
+                move.g2.players[move.j] = move.p1;
+                costs.delete(move.g1.court.id);
+                costs.delete(move.g2.court.id);
               };
             }
           }
@@ -397,16 +400,17 @@ function improve(
         if (immovable.has(onCourt.id) || mustPlay.has(onCourt.id)) continue;
         for (const bi of benchIndices) {
           const benched = bench[bi]!;
-          const next = g.players.slice();
-          next[i] = benched;
-          const gain = before - groupCost(next, ctx);
+          g.players[i] = benched;
+          const gain = before - groupCost(g.players, ctx);
+          g.players[i] = onCourt;
+
           if (gain > bestGain) {
             bestGain = gain;
-            const captured = { g, next, bi, onCourt };
+            const move = { g, i, bi, onCourt, benched };
             apply = () => {
-              captured.g.players = captured.next;
-              bench[captured.bi] = captured.onCourt;
-              costs.delete(captured.g.court.id);
+              move.g.players[move.i] = move.benched;
+              bench[move.bi] = move.onCourt;
+              costs.delete(move.g.court.id);
             };
           }
         }

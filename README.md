@@ -6,8 +6,8 @@ competitive against wait fairness so nobody sits out repeatedly — and showing
 the organizer *why* each foursome was chosen, so the call can be defended to a
 player who thinks they got skipped.
 
-Status: **the matching engine and its simulation harness are built and tested.**
-The web app around them is not.
+Status: **the engine and the organizer console both work.** You can run a real
+session on one device today. The live player view and cloud sync are not built.
 
 ## Layout
 
@@ -22,17 +22,45 @@ packages/engine/          zero-dependency, deterministic match-selection engine
   sim/session.ts          discrete-event simulation of a real session
   sim/session.test.ts     fairness invariants
   sim/report.ts           scorecard printer
+
+packages/web/             Next.js organizer console
+  src/lib/session.ts      session state + reducer over the engine
+  src/lib/useSession.ts   state, undo, live proposals
+  src/lib/storage.ts      persistence boundary (IndexedDB today)
+  src/components/         courts, queue, check-in, roster, summary
+  e2e/smoke.mjs           drives a whole session in a real browser
 ```
 
 ## Commands
 
 ```
-npm test          # everything (77 tests)
-npm run test:unit # engine unit tests only
+npm run dev       # organizer console at localhost:3000
+npm test          # everything (93 tests)
 npm run sim       # fairness invariants
 npm run scorecard # print the fairness table for the current weights
+npm run e2e       # browser smoke test (needs the dev server running)
 npm run check     # typecheck + test
 ```
+
+## The console
+
+One device, no account, no network. A session lives in IndexedDB on the
+organizer's phone, so it keeps working when the venue wifi does not, and a
+reload picks up exactly where it left off — wait times included.
+
+- **Courts** — every open court shows who is up next, the team averages, and a
+  one-line reason. Start, Reshuffle, or tap any player to swap them out.
+- **Queue** — in the engine's own priority order, so what you see matches what
+  it will do. Sorting by raw wait instead would quietly disagree with the
+  proposals and undermine trust in both. Anyone past the sit-out limit is
+  flagged in red.
+- **Roster** — ratings, matching preset, spread cap, and per-player "keep apart
+  from" pairs (stored, never shown to players).
+- **Undo** on every action, because mis-taps outdoors are constant.
+- Screen wake lock, so the phone does not sleep mid-rotation.
+
+Session state stores raw timestamps rather than derived counters, so nothing
+depends on a ticking timer being alive to stay correct.
 
 ## Design
 
@@ -137,6 +165,11 @@ silently absorbing it.
 
 ## Next
 
-The web app: Next.js + Supabase organizer console, live player view over a share
-link, offline-first session state, and the session-end rating review screen. See
-the plan for the full build order.
+- **Live player view** — a share link and QR that lets players watch the queue
+  and their own position from their phones. This is the piece that needs a
+  backend; `SessionStore` in `src/lib/storage.ts` is the seam a Supabase
+  adapter plugs into without the UI changing.
+- **Cross-session ratings** — the engine already banks rating evidence between
+  sessions, but nothing persists a club roster yet, so each session starts from
+  a fresh check-in.
+- **Sync across devices**, once there is a backend to sync to.

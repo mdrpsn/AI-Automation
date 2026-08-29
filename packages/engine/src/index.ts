@@ -4,6 +4,7 @@ export type { PresetName } from './config.js';
 export { fillCourts } from './select.js';
 export {
   bestSplit,
+  bestSplitCost,
   matchCost,
   pairCost,
   spreadCost,

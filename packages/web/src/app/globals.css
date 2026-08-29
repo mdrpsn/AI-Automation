@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface-sunk text-ink antialiased;
+  /* Nothing in this app should rubber-band; it is a control panel. */
+  overscroll-behavior: none;
+}
+
+@layer components {
+  /* Touch targets are deliberately large: this is used one-handed, outdoors,
+     often while holding a paddle. */
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4
+           text-base font-semibold transition active:scale-[0.98]
+           disabled:pointer-events-none disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent/90;
+  }
+  .btn-go {
+    @apply btn bg-go text-white hover:bg-go/90;
+  }
+  .btn-quiet {
+    @apply btn border border-surface-line bg-surface text-ink hover:bg-surface-sunk;
+  }
+  .btn-danger {
+    @apply btn border border-stop/30 bg-stop-soft text-stop hover:bg-stop/20;
+  }
+  .card {
+    @apply rounded-2xl border border-surface-line bg-surface shadow-sm;
+  }
+  .field {
+    @apply min-h-[44px] w-full rounded-xl border border-surface-line bg-surface px-3
+           text-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/20;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold;
+  }
+}
