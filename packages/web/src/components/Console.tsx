@@ -5,11 +5,13 @@ import type { PlayerId } from '@openplay/engine';
 import type { SessionState } from '@/lib/session';
 import { useProposals, useSessionController } from '@/lib/useSession';
 import { usePublish } from '@/lib/usePublish';
+import { usePendingCheckIns } from '@/lib/usePendingCheckIns';
 import { ActiveCourtCard, ClosedCourtCard, ProposalCard } from './CourtCard';
 import { QueueList, useQueueRows } from './Queue';
 import { CheckIn } from './CheckIn';
 import { RosterPanel } from './RosterPanel';
 import { ShareSheet } from './ShareSheet';
+import { CheckInTray } from './CheckInTray';
 import { SummaryPanel } from './SummaryPanel';
 import { Empty } from './primitives';
 
@@ -61,6 +63,7 @@ export function Console({ initial }: { initial: SessionState }) {
     [proposals.result],
   );
   const publishStatus = usePublish(state, upNextIds);
+  const checkIns = usePendingCheckIns(state);
 
   useWakeLock(state.status === 'live');
 
@@ -156,12 +159,26 @@ export function Console({ initial }: { initial: SessionState }) {
               {key === 'share' && publishStatus === 'live' ? (
                 <span className="ml-1 inline-block h-2 w-2 rounded-full bg-go align-middle" />
               ) : null}
+              {key === 'roster' && checkIns.pending.length > 0
+                ? ` (${checkIns.pending.length})`
+                : ''}
             </button>
           ))}
         </nav>
       </header>
 
       <main className="flex-1 space-y-3 p-3">
+        {checkIns.pending.length > 0 && tab === 'courts' ? (
+          <button
+            type="button"
+            onClick={() => setTab('roster')}
+            className="w-full rounded-xl border border-accent bg-accent-soft px-3 py-2 text-left text-sm font-semibold text-accent"
+          >
+            {checkIns.pending.length} player{checkIns.pending.length > 1 ? 's' : ''} waiting to
+            check in &rarr;
+          </button>
+        ) : null}
+
         {starving.length > 0 && tab === 'courts' ? (
           <div className="rounded-xl border border-stop/30 bg-stop-soft px-3 py-2 text-sm text-stop">
             <strong>Waiting too long:</strong>{' '}
@@ -276,6 +293,13 @@ export function Console({ initial }: { initial: SessionState }) {
 
         {tab === 'roster' ? (
           <div className="space-y-4">
+            <CheckInTray
+              state={state}
+              dispatch={dispatch}
+              pending={checkIns.pending}
+              resolve={checkIns.resolve}
+              reachable={checkIns.reachable}
+            />
             <section className="card p-3">
               <h2 className="mb-2 font-bold">Check in a player</h2>
               <CheckIn

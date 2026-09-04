@@ -106,6 +106,17 @@ export function LiveView({
         </p>
       ) : null}
 
+      {snapshot.checkIn.open ? (
+        <a
+          href={`/join/${token}`}
+          className="flex items-center justify-between gap-2 rounded-xl border border-accent
+                     bg-accent-soft px-3 py-2.5 text-sm font-bold text-accent"
+        >
+          <span>Not on the list yet? Check in</span>
+          <span aria-hidden="true">&rarr;</span>
+        </a>
+      ) : null}
+
       <section className="space-y-2">
         <h2 className="px-1 text-xs font-bold uppercase tracking-wide text-ink-faint">
           On court

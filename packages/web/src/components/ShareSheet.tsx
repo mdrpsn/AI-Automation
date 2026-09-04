@@ -103,6 +103,43 @@ export function ShareSheet({
             </span>
           </label>
 
+          <div className="space-y-2 rounded-xl border border-surface-line p-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-accent"
+                checked={state.checkInOpen}
+                onChange={(e) => dispatch({ type: 'session/checkInOpen', on: e.target.checked })}
+              />
+              <span>
+                Let players check themselves in
+                <span className="block text-xs text-ink-faint">
+                  They scan the same QR, type their name and tap a level. Nobody joins the queue
+                  until you accept them.
+                </span>
+              </span>
+            </label>
+
+            {state.checkInOpen ? (
+              <label className="flex items-center gap-2 border-t border-surface-line pt-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-accent"
+                  checked={state.duprRequired}
+                  onChange={(e) => dispatch({ type: 'session/duprRequired', on: e.target.checked })}
+                />
+                <span>
+                  Require a DUPR ID
+                  <span className="block text-xs text-ink-faint">
+                    Recorded against the player so you can recognise them. It is not a rating —
+                    fetching real DUPR ratings needs partner credentials from your club account
+                    manager.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"

@@ -12,6 +12,7 @@ export interface QueueRow {
   id: PlayerId;
   name: string;
   rating: number;
+  selfReported: boolean;
   waitSeconds: number;
   waitRotations: number;
   gamesPlayed: number;
@@ -38,6 +39,7 @@ export function useQueueRows(state: SessionState, now: number): QueueRow[] {
         id: player.id,
         name: player.name,
         rating: player.rating,
+        selfReported: state.players[player.id]?.selfReported ?? false,
         waitSeconds,
         waitRotations: rotations,
         gamesPlayed: player.gamesPlayed,
@@ -103,6 +105,14 @@ export function QueueList({
             >
               <span className="truncate font-semibold">{row.name}</span>
               <RatingBadge rating={row.rating} dim={paused} />
+              {row.selfReported ? (
+                <span
+                  className="chip bg-warn-soft text-warn"
+                  title="Rating chosen by the player, not confirmed by you"
+                >
+                  ?
+                </span>
+              ) : null}
             </button>
 
             <span className="flex shrink-0 items-center gap-1.5">

@@ -25,6 +25,14 @@ export interface SessionPlayer {
   ratingLocked: boolean;
   isGuest: boolean;
   avoid: PlayerId[];
+  /**
+   * The rating came from the player, not the organizer. Kept visible until the
+   * organizer confirms it: people round their own level up, and an inflated
+   * rating wrecks the first game they are put into.
+   */
+  selfReported: boolean;
+  /** Identity only. Without DUPR partner credentials this is not a rating. */
+  duprId?: string;
 
   status: PlayerStatus;
   joinedAt: number;
@@ -74,6 +82,10 @@ export interface SessionState {
   publicShowRatings: boolean;
   /** Whether this session is being published for players to watch. */
   published: boolean;
+  /** Players may scan the QR and put themselves forward for the queue. */
+  checkInOpen: boolean;
+  /** Self check-in demands a DUPR ID before it will accept a submission. */
+  duprRequired: boolean;
   status: 'setup' | 'live' | 'ended';
   createdAt: number;
   startedAt: number | null;
@@ -128,6 +140,8 @@ export function createSession(
     publishToken: newToken(32),
     publicShowRatings: false,
     published: false,
+    checkInOpen: false,
+    duprRequired: false,
     status: 'setup',
     createdAt: now,
     startedAt: null,
@@ -200,13 +214,24 @@ export type Action =
   | { type: 'session/publish'; on: boolean }
   | { type: 'session/showRatings'; on: boolean }
   | { type: 'session/rotateShareToken' }
+  | { type: 'session/checkInOpen'; on: boolean }
+  | { type: 'session/duprRequired'; on: boolean }
+  | { type: 'player/confirmRating'; id: PlayerId }
   | { type: 'session/preset'; preset: PresetName }
   | { type: 'session/spreadCap'; cap: number }
   | { type: 'session/start'; now: number }
   | { type: 'session/end'; now: number }
   | { type: 'courts/set'; count: number }
   | { type: 'courts/toggle'; courtId: string }
-  | { type: 'player/add'; name: string; rating: number; isGuest: boolean; now: number }
+  | {
+      type: 'player/add';
+      name: string;
+      rating: number;
+      isGuest: boolean;
+      now: number;
+      selfReported?: boolean;
+      duprId?: string;
+    }
   | { type: 'player/edit'; id: PlayerId; name?: string; rating?: number; ratingLocked?: boolean }
   | { type: 'player/avoid'; id: PlayerId; otherId: PlayerId; on: boolean }
   | { type: 'player/pause'; id: PlayerId; now: number }
@@ -265,6 +290,21 @@ export function reduce(state: SessionState, action: Action): SessionState {
       // Revoking a link that got shared too widely. The old one 404s at once.
       next.shareToken = newToken();
       return next;
+
+    case 'session/checkInOpen':
+      next.checkInOpen = action.on;
+      return next;
+
+    case 'session/duprRequired':
+      next.duprRequired = action.on;
+      return next;
+
+    case 'player/confirmRating': {
+      const p = next.players[action.id];
+      if (!p) return state;
+      p.selfReported = false;
+      return next;
+    }
 
     case 'session/preset':
       next.presetName = action.preset;
@@ -337,6 +377,8 @@ export function reduce(state: SessionState, action: Action): SessionState {
         ratingLocked: false,
         isGuest: action.isGuest,
         avoid: [],
+        selfReported: action.selfReported ?? false,
+        ...(action.duprId ? { duprId: action.duprId } : {}),
         status: 'waiting',
         joinedAt: action.now,
         availableSince: action.now,
@@ -357,7 +399,11 @@ export function reduce(state: SessionState, action: Action): SessionState {
       const p = next.players[action.id];
       if (!p) return state;
       if (action.name !== undefined) p.name = action.name.trim();
-      if (action.rating !== undefined) p.rating = action.rating;
+      if (action.rating !== undefined) {
+        p.rating = action.rating;
+        // Typing a rating is the organizer vouching for it.
+        p.selfReported = false;
+      }
       if (action.ratingLocked !== undefined) p.ratingLocked = action.ratingLocked;
       return next;
     }

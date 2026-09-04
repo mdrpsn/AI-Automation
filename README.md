@@ -6,9 +6,10 @@ competitive against wait fairness so nobody sits out repeatedly — and showing
 the organizer *why* each foursome was chosen, so the call can be defended to a
 player who thinks they got skipped.
 
-Status: **the engine, the organizer console and the live player view all
-work.** You can run a real session today: the organizer drives it from one
-device, players watch the queue on their phones by scanning a QR.
+Status: **the engine, the organizer console, the live player view and self
+check-in all work.** You can run a real session today: the organizer drives it
+from one device, players scan a QR to check themselves in and to watch the
+queue.
 
 ## Layout
 
@@ -29,17 +30,20 @@ packages/web/             Next.js organizer console
   src/lib/useSession.ts   state, undo, live proposals
   src/lib/storage.ts      persistence boundary (IndexedDB today)
   src/lib/publicSnapshot.ts  what players are allowed to see
+  src/lib/checkin.ts      self check-in rules (the untrusted-input boundary)
+  src/lib/dupr.ts         seam for a real DUPR rating lookup
   src/lib/liveStore.ts    server-side relay for published sessions
   src/components/         courts, queue, check-in, roster, share, summary
   e2e/smoke.mjs           drives a whole session in a real browser
   e2e/live.mjs            organizer + player, two browsers at once
+  e2e/checkin.mjs         a player checks in, the organizer accepts
 ```
 
 ## Commands
 
 ```
 npm run dev       # organizer console at localhost:3000
-npm test          # everything (93 tests)
+npm test          # everything (133 tests)
 npm run sim       # fairness invariants
 npm run scorecard # print the fairness table for the current weights
 npm run e2e       # browser tests, console + live view (needs the dev server)
@@ -99,6 +103,43 @@ The player page **long-polls** rather than using SSE or WebSockets. On a patchy
 venue network a long-lived stream that quietly dies looks exactly like "nothing
 has changed", whereas a poll that returns and re-issues heals itself on the next
 pass.
+
+## Self check-in
+
+Turn on **Let players check themselves in** and the same QR gains a check-in
+route. A player types their name, taps a skill level, and lands in a tray on the
+organizer's roster tab. **Nothing reaches the matching engine until the
+organizer accepts it.**
+
+That approval step is the whole design. A claimed rating is the one piece of
+stranger input that can reach the matcher, people round their own level up, and
+an inflated rating wrecks the first game they are put into. The player is
+standing in front of the organizer anyway, so the cost is a tap — and there is
+`Accept all` for a rush. Accepted players stay flagged **self-rated** in the
+roster and queue until the organizer confirms or corrects the number; editing
+the rating counts as confirming it.
+
+Two people checking in under the same name is flagged as a probable double
+scan rather than silently creating a second player.
+
+The check-in list is fetched with the publish secret, not the share token:
+everyone at the venue holds the share token, and the list carries names and
+claimed ratings. Submissions are rate limited per address and the tray is
+bounded, so a bored teenager with the QR cannot flood it — and even a flood
+lands in a tray the organizer can empty, never in the queue.
+
+### DUPR
+
+A session can require a DUPR ID. **This is identity, not a rating.** DUPR's API
+is partner-gated: a club needs credentials from their account manager before
+ratings can be fetched by id, so today the ID is recorded against the player for
+recognition and manual verification, and the player still taps their own level.
+
+`src/lib/dupr.ts` is the seam. Implement `DuprLookup` against the partner API,
+read credentials from a server-only env var, pass it to `setDuprLookup`, and
+accepted check-ins arrive with a verified rating instead of a claimed one —
+nothing else changes. To switch it on, ask your DUPR club account manager for
+partner API access and the rating-lookup endpoint for `duprIds`.
 
 ### Deploying it
 

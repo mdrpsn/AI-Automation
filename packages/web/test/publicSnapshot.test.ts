@@ -88,6 +88,7 @@ describe('what leaves the organizer device', () => {
     const snapshot = buildPublicSnapshot(state, T0 + MINUTE);
 
     expect(Object.keys(snapshot).sort()).toEqual([
+      'checkIn',
       'courts',
       'queue',
       'rotationSeconds',

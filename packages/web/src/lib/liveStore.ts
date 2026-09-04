@@ -1,3 +1,4 @@
+import type { PendingCheckIn } from './checkin.js';
 import type { PublicSnapshot } from './publicSnapshot.js';
 
 /**
@@ -19,6 +20,21 @@ export interface LiveStore {
   remove(token: string): Promise<void>;
   /** Resolves when the entry for `token` changes, or on timeout. */
   waitForChange(token: string, since: number, timeoutMs: number): Promise<LiveEntry | null>;
+
+  /**
+   * Check-ins queue here until the organizer's device pulls them.
+   *
+   * Players cannot write to the session directly — the organizer's device stays
+   * authoritative — so this is an inbox, not a source of truth. It is also
+   * where a burst of nonsense would land if someone decided to spam the QR,
+   * which is why it is bounded and separately clearable.
+   */
+  addPending(token: string, entry: PendingCheckIn): Promise<void>;
+  listPending(token: string): Promise<PendingCheckIn[]>;
+  removePending(token: string, ids: readonly string[]): Promise<void>;
+  /** Submissions from one address in the current window, for rate limiting. */
+  countRecent(token: string, fingerprint: string, windowMs: number): Promise<number>;
+  noteSubmission(token: string, fingerprint: string): Promise<void>;
 }
 
 export interface LiveEntry {
@@ -50,6 +66,8 @@ type Waiter = (entry: LiveEntry) => void;
 function createMemoryStore(): LiveStore {
   const entries = new Map<string, LiveEntry>();
   const waiters = new Map<string, Set<Waiter>>();
+  const pending = new Map<string, PendingCheckIn[]>();
+  const submissions = new Map<string, number[]>();
 
   const sweep = () => {
     const cutoff = Date.now() - TTL_MS;
@@ -81,10 +99,44 @@ function createMemoryStore(): LiveStore {
 
     async remove(token) {
       entries.delete(token);
-      const listeners = waiters.get(token);
-      if (listeners) {
-        waiters.delete(token);
+      waiters.delete(token);
+      pending.delete(token);
+      for (const key of [...submissions.keys()]) {
+        if (key.startsWith(`${token}|`)) submissions.delete(key);
       }
+    },
+
+    async addPending(token, entry) {
+      const queue = pending.get(token) ?? [];
+      queue.push(entry);
+      pending.set(token, queue);
+    },
+
+    async listPending(token) {
+      return [...(pending.get(token) ?? [])].sort((a, b) => a.submittedAt - b.submittedAt);
+    },
+
+    async removePending(token, ids) {
+      const drop = new Set(ids);
+      const queue = (pending.get(token) ?? []).filter((entry) => !drop.has(entry.id));
+      if (queue.length === 0) pending.delete(token);
+      else pending.set(token, queue);
+    },
+
+    async countRecent(token, fingerprint, windowMs) {
+      const key = `${token}|${fingerprint}`;
+      const cutoff = Date.now() - windowMs;
+      const recent = (submissions.get(key) ?? []).filter((at) => at >= cutoff);
+      if (recent.length === 0) submissions.delete(key);
+      else submissions.set(key, recent);
+      return recent.length;
+    },
+
+    async noteSubmission(token, fingerprint) {
+      const key = `${token}|${fingerprint}`;
+      const recent = submissions.get(key) ?? [];
+      recent.push(Date.now());
+      submissions.set(key, recent);
     },
 
     async waitForChange(token, since, timeoutMs) {

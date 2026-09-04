@@ -33,6 +33,12 @@ export interface PublicQueueEntry {
   etaSeconds: number | null;
 }
 
+export interface PublicCheckIn {
+  open: boolean;
+  /** Players must supply a DUPR ID before the form will submit. */
+  duprRequired: boolean;
+}
+
 export interface PublicSnapshot {
   sessionName: string;
   status: SessionState['status'];
@@ -42,6 +48,7 @@ export interface PublicSnapshot {
   courts: PublicCourt[];
   queue: PublicQueueEntry[];
   totals: { waiting: number; playing: number; games: number };
+  checkIn: PublicCheckIn;
 }
 
 /**
@@ -143,6 +150,12 @@ export function buildPublicSnapshot(
       waiting: waiting.length,
       playing: running.length * 4,
       games: state.completed.length,
+    },
+    checkIn: {
+      // Check-in closes with the session; nobody should be joining a queue for
+      // a session that has finished.
+      open: state.checkInOpen && state.status !== 'ended',
+      duprRequired: state.duprRequired,
     },
   };
 }

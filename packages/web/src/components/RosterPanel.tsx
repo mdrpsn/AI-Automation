@@ -101,6 +101,14 @@ export function RosterPanel({
                     onClick={() => setExpanded(open ? null : player.id)}
                   >
                     <span className="truncate font-semibold">{player.name}</span>
+                    {player.selfReported ? (
+                      <span
+                        className="ml-2 chip bg-warn-soft text-warn"
+                        title="This rating came from the player, not from you"
+                      >
+                        self-rated
+                      </span>
+                    ) : null}
                     {player.status === 'left' ? (
                       <span className="ml-2 chip bg-surface-sunk text-ink-faint">left</span>
                     ) : null}
@@ -124,6 +132,32 @@ export function RosterPanel({
 
                 {open ? (
                   <div className="space-y-2 border-t border-surface-line px-3 py-2">
+                    {player.selfReported ? (
+                      <div className="rounded-xl bg-warn-soft px-2 py-2 text-xs text-warn">
+                        <p className="font-semibold">
+                          {player.name} chose this level themselves.
+                        </p>
+                        <p className="mt-0.5">
+                          Change the number above if it looks wrong, or confirm it once
+                          you&rsquo;ve seen them play.
+                        </p>
+                        <button
+                          type="button"
+                          className="btn-quiet mt-1.5 w-full text-xs"
+                          onClick={() =>
+                            dispatch({ type: 'player/confirmRating', id: player.id })
+                          }
+                        >
+                          Looks right
+                        </button>
+                      </div>
+                    ) : null}
+                    {player.duprId ? (
+                      <p className="text-xs text-ink-faint">
+                        DUPR ID <strong className="font-mono">{player.duprId}</strong> — recorded
+                        for identity only, not used as a rating.
+                      </p>
+                    ) : null}
                     <label className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
