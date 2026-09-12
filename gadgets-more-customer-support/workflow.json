@@ -1,0 +1,181 @@
+{
+  "name": "Customer Support Agent",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 15,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "id": "44b11d11-3089-447a-8f9b-2a8c70d999a6",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0],
+      "notes": "Connect your own Gmail OAuth2 credential"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/files/<your-folder>/*.pdf",
+        "options": {}
+      },
+      "id": "e10fe5c9-816f-4497-89be-f1745b40e8ae",
+      "name": "Read Reference PDFs",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [272, -160],
+      "executeOnce": true,
+      "notes": "Bind-mount a folder with your reference PDFs into the n8n container, and allowlist it via N8N_RESTRICT_FILE_ACCESS_TO (n8n 2.0+ defaults this to ~/.n8n-files only)"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {
+          "joinPages": true
+        }
+      },
+      "id": "ef44b058-2c56-4573-8107-befbfa46fedb",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [528, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst combinedText = items.map(item => item.json.text || '').join('\\n\\n---\\n\\n');\nreturn [{ json: { combinedText } }];"
+      },
+      "id": "fbd83ba0-7e1f-43fc-bbeb-656facf6a7a5",
+      "name": "Combine Reference Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [784, -160]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}"
+      },
+      "id": "5b4d9c54-feb5-4920-9cf9-473661907ca8",
+      "name": "Get message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [272, 160],
+      "notes": "Connect your own Gmail OAuth2 credential"
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.Subject }}\n\n{{ $json.snippet }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "support_question",
+              "description": "The email asks about returns, repairs, warranties, or store policies (e.g. how to return an item, request a repair, warranty coverage, refund policy, price match, store hours)."
+            },
+            {
+              "category": "other",
+              "description": "Anything else - not a customer support question about returns, repairs, warranties, or store policies."
+            }
+          ]
+        },
+        "options": {
+          "enableAutoFixing": true
+        }
+      },
+      "id": "82fa4293-cd92-41c8-b58f-d4725cc6a7ce",
+      "name": "Text Classifier",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [512, 144]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a customer support assistant for Gadgets & More Electronics.\n\nCustomer email subject: {{ $('Get message').item.json.Subject }}\nCustomer email body:\n{{ $('Get message').item.json.snippet }}\n\nReference material (store policies and FAQs) - use ONLY this to answer:\n---\n{{ $('Combine Reference Text').first().json.combinedText }}\n---\n\nWrite a short, friendly, professional draft reply to the customer that directly answers their question using only the reference material above. Do not invent policy details that are not in the reference material. If the reference material does not clearly cover their specific question, write a brief, honest reply acknowledging their question and saying a team member will follow up with the specific details - do not guess. Output ONLY the email body text, no subject line, no JSON, no markdown formatting.",
+        "batching": {}
+      },
+      "id": "d09afc91-28ab-465a-a25e-ff2bd9c8f8b5",
+      "name": "Draft Support Reply",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [784, 128],
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Re: {{ $('Get message').item.json.Subject }}",
+        "message": "={{ $json.text }}",
+        "options": {
+          "threadId": "={{ $('Get message').item.json.threadId }}"
+        }
+      },
+      "id": "620cc822-3523-47eb-8c31-cb4c8843e45d",
+      "name": "Create Draft Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1040, 128],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "notes": "Connect your own Gmail OAuth2 credential (same as Get message / Gmail Trigger)"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "id": "e1f0902a-cbbf-4588-9494-a749692bdfe0",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [528, 464],
+      "notes": "Connect your own Google Gemini (PaLM) API credential - free tier available at aistudio.google.com"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          { "node": "Read Reference PDFs", "type": "main", "index": 0 },
+          { "node": "Get message", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Read Reference PDFs": {
+      "main": [[{ "node": "Extract PDF Text", "type": "main", "index": 0 }]]
+    },
+    "Extract PDF Text": {
+      "main": [[{ "node": "Combine Reference Text", "type": "main", "index": 0 }]]
+    },
+    "Get message": {
+      "main": [[{ "node": "Text Classifier", "type": "main", "index": 0 }]]
+    },
+    "Text Classifier": {
+      "main": [
+        [{ "node": "Draft Support Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Draft Support Reply": {
+      "main": [[{ "node": "Create Draft Reply", "type": "main", "index": 0 }]]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          { "node": "Text Classifier", "type": "ai_languageModel", "index": 0 },
+          { "node": "Draft Support Reply", "type": "ai_languageModel", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
