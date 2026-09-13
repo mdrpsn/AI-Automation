@@ -1,0 +1,186 @@
+{
+  "name": "Invoice Follow-Up Automation",
+  "nodes": [
+    {
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Daily Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "days", "triggerAtHour": 9 }]
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Get All Invoices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [220, 0],
+      "parameters": {
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_INVOICE_TRACKER_SPREADSHEET_ID"
+        },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Sheet1" },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Unpaid Only",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [440, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Unpaid",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Compute Reminder Stage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst today = DateTime.now().startOf('day');\n\nreturn items.map(item => {\n  const j = item.json;\n  const due = DateTime.fromFormat(String(j.DueDate), 'yyyy-MM-dd').startOf('day');\n  const daysOverdue = Math.round(today.diff(due, 'days').days);\n  const currentStage = parseInt(j.ReminderStage, 10) || 0;\n\n  let targetStage = 0;\n  if (daysOverdue >= 14) targetStage = 4;\n  else if (daysOverdue >= 7) targetStage = 3;\n  else if (daysOverdue >= 0) targetStage = 2;\n  else if (daysOverdue >= -3) targetStage = 1;\n\n  const shouldSend = targetStage > 0 && targetStage > currentStage;\n\n  const stageCopy = {\n    1: {\n      subject: `Reminder: Invoice ${j.InvoiceID} due soon`,\n      body: `Hi ${j.CustomerName},\\n\\nJust a heads up that invoice ${j.InvoiceID} for $${j.Amount} is due on ${j.DueDate}.\\n\\nThanks,\\nGadgets & More Electronics`\n    },\n    2: {\n      subject: `Invoice ${j.InvoiceID} is due today`,\n      body: `Hi ${j.CustomerName},\\n\\nInvoice ${j.InvoiceID} for $${j.Amount} is due today (${j.DueDate}). Let us know if you have any questions.\\n\\nThanks,\\nGadgets & More Electronics`\n    },\n    3: {\n      subject: `Invoice ${j.InvoiceID} is now overdue`,\n      body: `Hi ${j.CustomerName},\\n\\nInvoice ${j.InvoiceID} for $${j.Amount} was due on ${j.DueDate} and is now overdue. Please arrange payment at your earliest convenience.\\n\\nThanks,\\nGadgets & More Electronics`\n    }\n  };\n\n  const copy = stageCopy[targetStage] || { subject: '', body: '' };\n\n  return {\n    json: {\n      ...j,\n      daysOverdue,\n      currentStage,\n      targetStage,\n      shouldSend,\n      emailSubject: copy.subject,\n      emailBody: copy.body,\n      alertSubject: `[Action needed] Invoice ${j.InvoiceID} is ${daysOverdue} days overdue`,\n      alertBody: `${j.CustomerName} (${j.CustomerEmail}) has not paid invoice ${j.InvoiceID} for $${j.Amount}, due ${j.DueDate}. It is now ${daysOverdue} days overdue with no response to earlier reminders. Recommend a personal follow-up call.`\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Should Send",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [880, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.shouldSend }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Is Final Notice",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.targetStage }}",
+              "rightValue": 4,
+              "operator": { "type": "number", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Alert Owner - Needs Call",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1320, -100],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "owner@yourbusiness.com",
+        "subject": "={{ $json.alertSubject }}",
+        "message": "={{ $json.alertBody }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Send Reminder Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1320, 100],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.CustomerEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "Update Reminder Stage",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1540, 0],
+      "parameters": {
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_INVOICE_TRACKER_SPREADSHEET_ID"
+        },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Sheet1" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": ["InvoiceID"],
+          "value": {
+            "InvoiceID": "={{ $('Compute Reminder Stage').item.json.InvoiceID }}",
+            "ReminderStage": "={{ $('Compute Reminder Stage').item.json.targetStage }}",
+            "LastReminderSent": "={{ $now.toFormat('yyyy-MM-dd') }}"
+          },
+          "schema": [
+            { "id": "InvoiceID", "displayName": "InvoiceID", "type": "string", "canBeUsedToMatch": true, "defaultMatch": true, "required": false, "display": true },
+            { "id": "ReminderStage", "displayName": "ReminderStage", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "LastReminderSent", "displayName": "LastReminderSent", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Daily Check": { "main": [[{ "node": "Get All Invoices", "type": "main", "index": 0 }]] },
+    "Get All Invoices": { "main": [[{ "node": "Unpaid Only", "type": "main", "index": 0 }]] },
+    "Unpaid Only": { "main": [[{ "node": "Compute Reminder Stage", "type": "main", "index": 0 }]] },
+    "Compute Reminder Stage": { "main": [[{ "node": "Should Send", "type": "main", "index": 0 }]] },
+    "Should Send": { "main": [[{ "node": "Is Final Notice", "type": "main", "index": 0 }]] },
+    "Is Final Notice": {
+      "main": [
+        [{ "node": "Alert Owner - Needs Call", "type": "main", "index": 0 }],
+        [{ "node": "Send Reminder Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Alert Owner - Needs Call": { "main": [[{ "node": "Update Reminder Stage", "type": "main", "index": 0 }]] },
+    "Send Reminder Email": { "main": [[{ "node": "Update Reminder Stage", "type": "main", "index": 0 }]] }
+  }
+}

@@ -17,3 +17,10 @@ with its own README and supporting files.
   replied. Standalone service, not a no-code workflow; SMS and calendar providers are
   swappable (mock for testing, Twilio/real calendar for production). Tested end to end
   with a real running server, not just unit tests.
+
+- [invoice-follow-up-automation](invoice-follow-up-automation/) — daily n8n workflow
+  that reads an invoice tracker, escalates unpaid invoices through reminder stages
+  (due soon → due today → overdue), and never double-sends. Stops short of automating
+  the final overdue notice — that stage alerts a human to make a personal call instead.
+  Tested against real sample invoices with real emails sent and a confirmed no-repeat
+  run.
