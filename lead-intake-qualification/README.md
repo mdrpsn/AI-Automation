@@ -50,14 +50,16 @@ buried.
    the lead's message and sorts it into `hot_lead` / `warm_lead` /
    `cold_lead`.
 7. **Tag Hot / Tag Warm / Tag Cold Or Spam** — one Set node per branch,
-   recording the tier and a plain-English reason for the log.
+   recording the tier and a plain-English reason for the log, while keeping
+   every other field on the item (`includeOtherFields: true` — see Testing
+   status below for why that matters).
 8. **Alert Sales - Hot Lead** → **Send Auto-Reply - Hot** — only on the hot
    branch: pages sales, then replies to the lead.
 9. **Send Auto-Reply - Warm** — only on the warm branch.
-10. **Merge Branches** — recombines the three branches (only one fires per
-    lead) back into a single stream.
-11. **Log Lead** — appends the lead, its tier, and the reason to the Leads
-    Tracker sheet.
+10. **Log Lead** — appends the lead, its tier, and the reason to the Leads
+    Tracker sheet. All three branches connect directly into this node's
+    single input instead of going through a Merge node (again, see Testing
+    status).
 
 ## Setting it up for your own business
 
@@ -80,14 +82,55 @@ buried.
 
 ## Testing status
 
-Built following the same node patterns as the other two workflows in this
-portfolio (`invoice-follow-up-automation`, `gadgets-more-customer-support`),
-both of which were validated end to end against a real n8n instance. This
-workflow has **not** been run against a live n8n instance or real Gmail/
-Sheets credentials in this session — there wasn't one available here. Before
-relying on it, run it through n8n's own validation and a few real test
-submissions (a hot one, a warm one, a spammy one, and a duplicate) to confirm
-the branching and dedup logic behave as designed.
+Tested end to end against a real, self-hosted n8n instance (free/open-source,
+run locally — no n8n cloud account needed) — not just JSON-validated. Google
+Sheets, Gmail, and the Gemini classifier were swapped for equivalent mock
+nodes for this test run (no real Google credentials were available in this
+session), so the *routing and data logic* was exercised for real through
+n8n's own execution engine, while the actual AI call and real email/sheet
+delivery are still unverified — see below.
+
+Four scenarios were run through the live webhook: a hot lead ("urgent...
+ready to hire ASAP"), a warm lead ("interested... just exploring"), a
+cold/spam lead (a vendor pitch), and an immediate duplicate resubmission of
+the hot lead. All four produced the exact behavior the workflow is designed
+for: the hot lead triggered a sales alert plus its own auto-reply, the warm
+lead got only an auto-reply, the cold lead got no email at all, every
+non-duplicate lead was logged with the correct tier, and the duplicate
+produced zero side effects (no alert, no auto-reply, no log entry).
+
+This same testing surfaced and fixed three real bugs that JSON validation
+alone would never have caught:
+
+1. **A brand-new/empty Leads Tracker sheet silently killed the entire
+   workflow.** `Get Existing Leads` returning 0 rows (exactly what happens
+   before the very first lead is ever logged) made n8n halt the whole
+   execution right there — the first lead a business ever received would
+   vanish with no alert, no reply, no log entry, and no error. Fixed by
+   setting `alwaysOutputData: true` on that node.
+2. **The `Tag Hot` / `Tag Warm` / `Tag Cold Or Spam` Set nodes were
+   silently dropping every field except the two they set.** n8n's Set node
+   defaults `includeOtherFields` to `false`, so `name`, `email`, `phone`,
+   and `leadId` were all gone by the time the auto-reply and logging steps
+   needed them — auto-replies would have gone to a blank address. Fixed by
+   setting `includeOtherFields: true` on all three.
+3. **The `Merge Branches` node silently dropped every lead.** Since only
+   one of the three tier branches ever fires per execution, a Merge node
+   downstream never receives a "no data" signal from the two branches that
+   didn't run, and n8n's engine finishes the execution without ever
+   invoking it with the item that *did* arrive — `Log Lead` never ran, for
+   any tier. Fixed by removing the Merge node and wiring all three branch
+   endpoints directly into `Log Lead`'s single input instead (multiple
+   sources feeding one input is valid n8n wiring, and only one of them
+   fires per execution anyway).
+
+**Still unverified**, since it needs real credentials this session didn't
+have: the actual Gemini API call's classification quality (the routing
+logic was exercised using a keyword-based stand-in, not a live model), and
+real Gmail/Sheets delivery (n8n's OAuth setup for those needs an interactive
+browser consent flow tied to your own Google account). Before going live,
+connect real credentials and re-run the same four scenarios once against
+the real Gmail/Sheets/Gemini nodes.
 
 ## Known limitations
 

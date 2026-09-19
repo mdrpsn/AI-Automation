@@ -33,6 +33,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [440, 0],
+      "alwaysOutputData": true,
+      "notes": "alwaysOutputData is required here: on a brand-new/empty Leads Tracker sheet this node returns 0 rows, and without this flag n8n halts the whole execution right here - the very first lead ever submitted would silently vanish.",
       "parameters": {
         "resource": "sheet",
         "operation": "read",
@@ -119,6 +121,7 @@
             { "id": "t2", "name": "qualificationNote", "type": "string", "value": "Urgency, timeline, or buying-intent language detected." }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
       }
     },
@@ -165,6 +168,7 @@
             { "id": "t2", "name": "qualificationNote", "type": "string", "value": "Genuine interest, but no urgency or timeline signals yet." }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
       }
     },
@@ -196,18 +200,8 @@
             { "id": "t2", "name": "qualificationNote", "type": "string", "value": "No clear buying intent detected - likely spam, a vendor pitch, or unrelated inquiry." }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
-      }
-    },
-    {
-      "id": "c1000000-0000-4000-8000-000000000013",
-      "name": "Merge Branches",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [1980, 0],
-      "parameters": {
-        "mode": "append",
-        "numberOfInputs": 3
       }
     },
     {
@@ -216,6 +210,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [2200, 0],
+      "notes": "Deliberately has 3 incoming connections instead of going through a Merge node. Only one of the three tier branches ever fires per execution, and a Merge node here silently drops the item - it waits on all 3 inputs and never gets 'no data' signals from the two branches that didn't run. Multiple sources feeding the same input is valid n8n wiring and avoids that failure mode.",
       "parameters": {
         "resource": "sheet",
         "operation": "append",
@@ -281,11 +276,10 @@
     },
     "Tag Hot": { "main": [[{ "node": "Alert Sales - Hot Lead", "type": "main", "index": 0 }]] },
     "Alert Sales - Hot Lead": { "main": [[{ "node": "Send Auto-Reply - Hot", "type": "main", "index": 0 }]] },
-    "Send Auto-Reply - Hot": { "main": [[{ "node": "Merge Branches", "type": "main", "index": 0 }]] },
+    "Send Auto-Reply - Hot": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
     "Tag Warm": { "main": [[{ "node": "Send Auto-Reply - Warm", "type": "main", "index": 0 }]] },
-    "Send Auto-Reply - Warm": { "main": [[{ "node": "Merge Branches", "type": "main", "index": 1 }]] },
-    "Tag Cold Or Spam": { "main": [[{ "node": "Merge Branches", "type": "main", "index": 2 }]] },
-    "Merge Branches": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
+    "Send Auto-Reply - Warm": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
+    "Tag Cold Or Spam": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
     "Google Gemini Chat Model": { "ai_languageModel": [[{ "node": "Qualify Lead", "type": "ai_languageModel", "index": 0 }]] }
   },
   "settings": {
