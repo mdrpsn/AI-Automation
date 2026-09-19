@@ -24,3 +24,9 @@ with its own README and supporting files.
   the final overdue notice — that stage alerts a human to make a personal call instead.
   Tested against real sample invoices with real emails sent and a confirmed no-repeat
   run.
+
+- [lead-intake-qualification](lead-intake-qualification/) — webhook-triggered n8n
+  workflow that catches new leads from a contact form, scores each one Hot/Warm/Cold
+  with an AI classifier, and only pages sales for the hot ones — while auto-replying
+  to everyone and logging every lead to a tracker sheet. Skips duplicate alerts for
+  the same email resubmitting within 24 hours.
