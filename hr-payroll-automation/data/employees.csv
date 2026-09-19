@@ -1,0 +1,7 @@
+employee_id,first_name,last_name,email,position,pay_type,rate,pay_frequency
+E001,Juan,Dela Cruz,juan.delacruz@example.com,Warehouse Supervisor,monthly,25000,semi-monthly
+E002,Maria,Santos,maria.santos@example.com,Accounting Clerk,monthly,22000,semi-monthly
+E003,Pedro,Reyes,pedro.reyes@example.com,Delivery Driver,daily,650,semi-monthly
+E004,Ana,Lim,ana.lim@example.com,Sales Associate,monthly,18000,semi-monthly
+E005,Jose,Ramirez,jose.ramirez@example.com,Warehouse Helper,daily,570,semi-monthly
+E006,Carmen,Bautista,carmen.bautista@example.com,HR Assistant,monthly,20000,semi-monthly

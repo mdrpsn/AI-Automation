@@ -5,6 +5,14 @@ with its own README and supporting files.
 
 ## Builds
 
+- [hr-payroll-automation](hr-payroll-automation/) — FastAPI payroll engine for
+  a small Philippine business: ingests attendance from an hr.my time-clock
+  export and manually transcribed paper DTR sheets, computes semi-monthly
+  payroll with SSS/PhilHealth/Pag-IBIG/BIR withholding tax, and generates a
+  PDF pay stub per employee. Tested end to end with a real running server,
+  including a deliberately messy attendance period to confirm missing
+  timesheets and zero-attendance employees are flagged, not silently paid.
+
 - [gadgets-more-customer-support](gadgets-more-customer-support/) — Gmail-monitoring
   support agent that classifies incoming emails, answers from reference PDFs (returns,
   repairs, warranties, store policies), and drafts a reply for human review before
