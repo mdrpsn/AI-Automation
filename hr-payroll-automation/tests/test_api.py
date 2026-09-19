@@ -1,22 +1,19 @@
-import shutil
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
 from app import storage
-from app.main import OUTPUT_DIR, app
+from app.main import app
 
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clean_output_dir():
-    if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+def clean_ledger():
+    if storage.LEDGER_PATH.exists():
+        storage.LEDGER_PATH.unlink()
     yield
-    shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
+    if storage.LEDGER_PATH.exists():
+        storage.LEDGER_PATH.unlink()
 
 
 def test_list_employees():
@@ -27,7 +24,7 @@ def test_list_employees():
     assert {e["employee_id"] for e in employees} == {"E001", "E002", "E003", "E004", "E005", "E006"}
 
 
-def test_run_payroll_second_cutoff_withholds_contributions_and_generates_pdfs():
+def test_run_payroll_second_cutoff_withholds_contributions():
     response = client.post(
         "/payroll/run",
         params={"period_start": "2026-08-16", "period_end": "2026-08-31", "timesheet_source": "both"},
@@ -42,11 +39,6 @@ def test_run_payroll_second_cutoff_withholds_contributions_and_generates_pdfs():
     juan = next(s for s in body["pay_stubs"] if s["employee_id"] == "E001")
     assert juan["gross_pay"] == 12_500.0  # 11 days * (25000 / 22 days/month)
     assert juan["net_pay"] < juan["gross_pay"]
-
-    pdf_response = client.get(juan["pdf_url"])
-    assert pdf_response.status_code == 200
-    assert pdf_response.headers["content-type"] == "application/pdf"
-    assert pdf_response.content.startswith(b"%PDF")
 
 
 def test_run_payroll_first_cutoff_flags_missing_and_unaccounted_timesheets():

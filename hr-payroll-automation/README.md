@@ -29,12 +29,12 @@ A FastAPI service that:
    and BIR withholding tax — following the real semi-monthly cutoff practice
    most PH small businesses use: contributions are withheld once, on the
    16th–end-of-month cutoff, while the 1st–15th cutoff only withholds tax.
-4. **Generates a PDF pay stub per employee** for every run, itemizing hours,
-   earnings, each deduction, net pay, and year-to-date totals.
+4. **Tracks year-to-date totals** per employee via a JSON ledger, so every
+   run knows each employee's cumulative gross pay, net pay, and tax withheld.
 5. **Flags problems instead of silently guessing** — a missing timesheet for
    an expected working day, an employee with zero attendance for the whole
    period, or a period where deductions exceed gross pay all surface as
-   explicit warnings on the run and on that employee's pay stub.
+   explicit warnings on the run and on that employee's pay stub record.
 
 ## Architecture
 
@@ -44,7 +44,6 @@ app/
   deductions.py         SSS / PhilHealth / Pag-IBIG / BIR withholding tax
   timesheet_parser.py   hr.my CSV + manual DTR CSV -> normalized TimeLogEntry
   payroll_engine.py     timesheet aggregation -> gross/net pay per employee
-  paystub_pdf.py        PayStub -> one-page PDF (reportlab)
   storage.py            employee CSV loading + JSON ledger for YTD totals
   main.py                FastAPI endpoints
 data/                   sample employees + both timesheet formats
@@ -61,10 +60,9 @@ from a laptop with no infrastructure.
 | Endpoint | Description |
 |---|---|
 | `GET /employees` | List employees loaded from `data/employees.csv` |
-| `POST /payroll/run?period_start=&period_end=&timesheet_source=hrmy\|dtr\|both` | Run payroll for a period, save it to the ledger, and generate a PDF pay stub per employee |
+| `POST /payroll/run?period_start=&period_end=&timesheet_source=hrmy\|dtr\|both` | Run payroll for a period and save it to the ledger |
 | `GET /payroll/runs` | List all past runs |
 | `GET /payroll/runs/{run_id}` | Get one run's summary |
-| `GET /payroll/runs/{run_id}/paystubs/{employee_id}/pdf` | Download that employee's pay stub PDF |
 
 ## Running it
 
@@ -96,21 +94,20 @@ happy path.
 Ran end to end against a real running `uvicorn` server, not just the test
 suite:
 
-- Ran payroll for the 2nd cutoff (Aug 16–31, full attendance): 6 pay stubs
-  generated, correct SSS/PhilHealth/Pag-IBIG withheld for every employee,
-  zero warnings.
+- Ran payroll for the 2nd cutoff (Aug 16–31, full attendance): 6 pay stub
+  records computed, correct SSS/PhilHealth/Pag-IBIG withheld for every
+  employee, zero warnings.
 - Ran payroll for the 1st cutoff (Sep 1–15, deliberately messy attendance):
   correctly flagged the employee with no timesheet entries at all, correctly
   flagged the one unaccounted (missing-row) working day for another
   employee, and correctly caught a negative-net-pay case where absence
   deductions exceeded gross pay.
-- Downloaded a generated PDF pay stub over HTTP and confirmed it's a valid,
-  readable 2-page PDF with the correct hours, deductions, and YTD figures.
-- 26 unit/integration tests pass, covering the deduction formulas against
-  known reference values (e.g. the commonly-cited P25,000/month → P625
-  withholding tax figure under the 2023 TRAIN table), the payroll engine's
-  overtime/late/absence math, both timesheet parsers, and the API end to end
-  including PDF download.
+- Confirmed year-to-date totals correctly carried over from the August run
+  into September's `ytd_*_before` figures via the JSON ledger.
+- Unit/integration tests cover the deduction formulas against known
+  reference values (e.g. the commonly-cited P25,000/month → P625 withholding
+  tax figure under the 2023 TRAIN table), the payroll engine's
+  overtime/late/absence math, both timesheet parsers, and the API end to end.
 
 ## Known limitations
 
@@ -127,6 +124,6 @@ suite:
 - Statutory contributions are computed on `pay_frequency`, not per-employee
   overrides — fine for a business where everyone's on the same semi-monthly
   cutoff, would need extending for mixed pay calendars.
-- No direct-deposit / bank file export, no e-signature on pay stubs, and no
-  manager approval step before a run is finalized — this build focused on
-  getting the payroll calculation and pay stub generation right first.
+- No pay stub document (PDF/print) generation, no direct-deposit / bank file
+  export, and no manager approval step before a run is finalized — this
+  build focused on getting the payroll calculation itself right first.

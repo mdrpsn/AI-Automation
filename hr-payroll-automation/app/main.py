@@ -2,8 +2,8 @@
 
 Ingests attendance from two real-world sources a small business actually
 has -- an hr.my time-clock export and manually transcribed paper DTR sheets
--- computes a Philippines-compliant payroll run (SSS/PhilHealth/Pag-IBIG/
-BIR withholding), and generates a PDF pay stub per employee.
+-- and computes a Philippines-compliant payroll run (SSS/PhilHealth/
+Pag-IBIG/BIR withholding).
 """
 from __future__ import annotations
 
@@ -12,17 +12,14 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
 
 from . import storage
 from .models import Employee, TimeLogEntry
 from .payroll_engine import run_payroll
-from .paystub_pdf import generate_pay_stub_pdf
 from .timesheet_parser import parse_dtr_csv, parse_hrmy_csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-OUTPUT_DIR = BASE_DIR / "output"
 
 EMPLOYEES_CSV = DATA_DIR / "employees.csv"
 HRMY_CSV = DATA_DIR / "timesheets_hrmy_export.csv"
@@ -83,10 +80,6 @@ def create_payroll_run(
     run = run_payroll(employees, entries, period_start, period_end, ytd_lookup)
     storage.save_run(run)
 
-    run_dir = OUTPUT_DIR / run.run_id
-    for stub in run.pay_stubs:
-        generate_pay_stub_pdf(stub, run_dir)
-
     return {
         "run_id": run.run_id,
         "period_start": run.period_start.isoformat(),
@@ -104,7 +97,6 @@ def create_payroll_run(
                 "net_pay": stub.net_pay,
                 "withholding_tax": stub.deductions.withholding_tax,
                 "warnings": stub.warnings,
-                "pdf_url": f"/payroll/runs/{run.run_id}/paystubs/{stub.employee.employee_id}/pdf",
             }
             for stub in run.pay_stubs
         ],
@@ -122,14 +114,3 @@ def get_payroll_run(run_id: str):
         if run["run_id"] == run_id:
             return run
     raise HTTPException(404, f"Payroll run {run_id!r} not found")
-
-
-@app.get("/payroll/runs/{run_id}/paystubs/{employee_id}/pdf")
-def get_pay_stub_pdf(run_id: str, employee_id: str):
-    run_dir = OUTPUT_DIR / run_id
-    if not run_dir.exists():
-        raise HTTPException(404, f"Payroll run {run_id!r} not found")
-    matches = list(run_dir.glob(f"{employee_id}_*.pdf"))
-    if not matches:
-        raise HTTPException(404, f"No pay stub for employee {employee_id!r} in run {run_id!r}")
-    return FileResponse(matches[0], media_type="application/pdf", filename=matches[0].name)
