@@ -1,0 +1,288 @@
+{
+  "name": "Lead Intake & Qualification",
+  "active": false,
+  "nodes": [
+    {
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "New Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "notes": "Point your website contact form / Typeform / Zapier catch hook at this URL. Responds immediately so the visitor's browser doesn't wait on email sends."
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Normalize Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst name = (body.name || body.Name || '').toString().trim();\nconst email = (body.email || body.Email || '').toString().trim().toLowerCase();\nconst phone = (body.phone || body.Phone || '').toString().trim();\nconst message = (body.message || body.Message || body.details || '').toString().trim();\nconst source = (body.source || body.Source || 'website-form').toString().trim();\n\nreturn [{\n  json: {\n    leadId: `LEAD-${Date.now()}`,\n    name,\n    email,\n    phone,\n    message,\n    source,\n    submittedAt: DateTime.now().toISO()\n  }\n}];"
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000003",
+      "name": "Get Existing Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [440, 0],
+      "alwaysOutputData": true,
+      "notes": "alwaysOutputData is required here: on a brand-new/empty Leads Tracker sheet this node returns 0 rows, and without this flag n8n halts the whole execution right here - the very first lead ever submitted would silently vanish.",
+      "parameters": {
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_LEADS_TRACKER_SPREADSHEET_ID"
+        },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Sheet1" },
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000004",
+      "name": "Check Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const lead = $('Normalize Lead').first().json;\nconst existing = $input.all();\nconst cutoff = DateTime.now().minus({ hours: 24 });\n\nconst isDuplicate = existing.some(item => {\n  const row = item.json;\n  if (!row.Email) return false;\n  if (String(row.Email).trim().toLowerCase() !== lead.email) return false;\n  const submitted = DateTime.fromISO(String(row.SubmittedAt));\n  return submitted.isValid && submitted > cutoff;\n});\n\nreturn [{\n  json: {\n    ...lead,\n    isDuplicate\n  }\n}];"
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000005",
+      "name": "Not A Duplicate",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [880, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "false", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000006",
+      "name": "Qualify Lead",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [1100, 0],
+      "parameters": {
+        "inputText": "=Lead message: {{ $json.message }}\n\nSource: {{ $json.source }}\nPhone provided: {{ $json.phone ? 'yes' : 'no' }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "hot_lead",
+              "description": "The message expresses urgency, a specific timeline, or explicit intent to buy/book/hire soon (e.g. 'need this done this week', 'ready to hire', 'what's your availability', mentions a budget or asks about pricing to move forward)."
+            },
+            {
+              "category": "warm_lead",
+              "description": "The message shows genuine interest and asks relevant questions, but has no urgency or timeline mentioned (e.g. general pricing questions, 'just looking into options', 'exploring for later this year')."
+            },
+            {
+              "category": "cold_lead",
+              "description": "The message is vague, unrelated to the business, spam, a vendor/job solicitation, or shows no real buying intent."
+            }
+          ]
+        },
+        "options": {
+          "enableAutoFixing": true
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000007",
+      "name": "Tag Hot",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, -220],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "t1", "name": "tier", "type": "string", "value": "Hot" },
+            { "id": "t2", "name": "qualificationNote", "type": "string", "value": "Urgency, timeline, or buying-intent language detected." }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000008",
+      "name": "Alert Sales - Hot Lead",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1540, -220],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "sales@yourbusiness.com",
+        "subject": "=Hot lead: {{ $json.name }}",
+        "message": "=New hot lead just came in:\n\nName: {{ $json.name }}\nEmail: {{ $json.email }}\nPhone: {{ $json.phone }}\nSource: {{ $json.source }}\n\nMessage:\n{{ $json.message }}\n\nWhy it's hot: {{ $json.qualificationNote }}\n\nRecommend calling within the hour.",
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000009",
+      "name": "Send Auto-Reply - Hot",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1760, -220],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Thanks for reaching out, {{ $json.name }}!",
+        "message": "=Hi {{ $json.name }},\n\nThanks for getting in touch! We got your message and someone from our team will call you within the hour to get things moving.\n\nTalk soon,\nYour Business",
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000010",
+      "name": "Tag Warm",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 0],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "t1", "name": "tier", "type": "string", "value": "Warm" },
+            { "id": "t2", "name": "qualificationNote", "type": "string", "value": "Genuine interest, but no urgency or timeline signals yet." }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000011",
+      "name": "Send Auto-Reply - Warm",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1540, 0],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Thanks for reaching out, {{ $json.name }}!",
+        "message": "=Hi {{ $json.name }},\n\nThanks for your interest! We've got your message and someone from our team will follow up in the next day or two with more details.\n\nIn the meantime, feel free to reply here with any questions.\n\nTalk soon,\nYour Business",
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000012",
+      "name": "Tag Cold Or Spam",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 220],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "t1", "name": "tier", "type": "string", "value": "Cold/Spam" },
+            { "id": "t2", "name": "qualificationNote", "type": "string", "value": "No clear buying intent detected - likely spam, a vendor pitch, or unrelated inquiry." }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000014",
+      "name": "Log Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [2200, 0],
+      "notes": "Deliberately has 3 incoming connections instead of going through a Merge node. Only one of the three tier branches ever fires per execution, and a Merge node here silently drops the item - it waits on all 3 inputs and never gets 'no data' signals from the two branches that didn't run. Multiple sources feeding the same input is valid n8n wiring and avoids that failure mode.",
+      "parameters": {
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_LEADS_TRACKER_SPREADSHEET_ID"
+        },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Sheet1" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LeadID": "={{ $json.leadId }}",
+            "Name": "={{ $json.name }}",
+            "Email": "={{ $json.email }}",
+            "Phone": "={{ $json.phone }}",
+            "Message": "={{ $json.message }}",
+            "Source": "={{ $json.source }}",
+            "Tier": "={{ $json.tier }}",
+            "QualificationNote": "={{ $json.qualificationNote }}",
+            "SubmittedAt": "={{ $json.submittedAt }}"
+          },
+          "schema": [
+            { "id": "LeadID", "displayName": "LeadID", "type": "string", "canBeUsedToMatch": true, "defaultMatch": true, "required": false, "display": true },
+            { "id": "Name", "displayName": "Name", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "Email", "displayName": "Email", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "Phone", "displayName": "Phone", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "Message", "displayName": "Message", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "Source", "displayName": "Source", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "Tier", "displayName": "Tier", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "QualificationNote", "displayName": "QualificationNote", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true },
+            { "id": "SubmittedAt", "displayName": "SubmittedAt", "type": "string", "canBeUsedToMatch": false, "required": false, "display": true }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000015",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [1100, 220],
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "notes": "Connect your own Google Gemini (PaLM) API credential - free tier available at aistudio.google.com"
+    }
+  ],
+  "connections": {
+    "New Lead Webhook": { "main": [[{ "node": "Normalize Lead", "type": "main", "index": 0 }]] },
+    "Normalize Lead": { "main": [[{ "node": "Get Existing Leads", "type": "main", "index": 0 }]] },
+    "Get Existing Leads": { "main": [[{ "node": "Check Duplicate", "type": "main", "index": 0 }]] },
+    "Check Duplicate": { "main": [[{ "node": "Not A Duplicate", "type": "main", "index": 0 }]] },
+    "Not A Duplicate": { "main": [[{ "node": "Qualify Lead", "type": "main", "index": 0 }]] },
+    "Qualify Lead": {
+      "main": [
+        [{ "node": "Tag Hot", "type": "main", "index": 0 }],
+        [{ "node": "Tag Warm", "type": "main", "index": 0 }],
+        [{ "node": "Tag Cold Or Spam", "type": "main", "index": 0 }]
+      ]
+    },
+    "Tag Hot": { "main": [[{ "node": "Alert Sales - Hot Lead", "type": "main", "index": 0 }]] },
+    "Alert Sales - Hot Lead": { "main": [[{ "node": "Send Auto-Reply - Hot", "type": "main", "index": 0 }]] },
+    "Send Auto-Reply - Hot": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
+    "Tag Warm": { "main": [[{ "node": "Send Auto-Reply - Warm", "type": "main", "index": 0 }]] },
+    "Send Auto-Reply - Warm": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
+    "Tag Cold Or Spam": { "main": [[{ "node": "Log Lead", "type": "main", "index": 0 }]] },
+    "Google Gemini Chat Model": { "ai_languageModel": [[{ "node": "Qualify Lead", "type": "ai_languageModel", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
