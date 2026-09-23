@@ -1,0 +1,75 @@
+{
+  "roster": [
+    "SANTOS", "REYES", "CRUZ", "GARCIA", "MENDOZA",
+    "BAUTISTA", "TORRES", "RAMOS", "FLORES", "DELACRUZ",
+    "VILLANUEVA", "AQUINO", "GONZALES", "CASTRO", "FERNANDEZ",
+    "OCAMPO", "RIVERA", "NAVARRO", "PASCUAL", "MARQUEZ"
+  ],
+  "_comment_roles": "Barista-only, Kitchen-only, or Both (flexible). Unlisted = flexible.",
+  "roles": {
+    "SANTOS": "Barista", "REYES": "Barista", "CRUZ": "Both", "GARCIA": "Kitchen",
+    "MENDOZA": "Kitchen", "BAUTISTA": "Kitchen", "TORRES": "Barista", "RAMOS": "Kitchen",
+    "FLORES": "Barista", "DELACRUZ": "Kitchen", "VILLANUEVA": "Both", "AQUINO": "Barista",
+    "GONZALES": "Kitchen", "CASTRO": "Both", "FERNANDEZ": "Kitchen", "OCAMPO": "Both",
+    "RIVERA": "Barista", "NAVARRO": "Kitchen", "PASCUAL": "Both", "MARQUEZ": "Both"
+  },
+  "_comment_location_restrictions": "name -> list of locations they may ever be assigned to. Omitted = no restriction. (Empty in this sample dataset -- see README.)",
+  "location_restrictions": {},
+  "_comment_shift_restrictions": "name -> list of shifts they may never be assigned to. (Empty in this sample dataset -- see README.)",
+  "shift_restrictions": {},
+  "_comment_no_pair": "pairs of people who must never share the same location+shift.",
+  "no_pair": [],
+  "_comment_anchors": "slot 'LOCATION|SHIFT|ROLE' -> the person who normally holds it.",
+  "anchors": {
+    "MAIN|PM|Barista": "SANTOS",
+    "MAIN|PM|Kitchen": "GARCIA",
+    "MAIN|AM|Kitchen": "MENDOZA",
+    "MARFORI|AM|Kitchen": "BAUTISTA",
+    "MARFORI|PM|Barista": "TORRES",
+    "MARFORI|PM|Kitchen": "RAMOS",
+    "MINTAL|PM|Barista": "FLORES",
+    "SASA|-|Barista": "AQUINO",
+    "SASA|-|Kitchen": "GONZALES"
+  },
+  "_comment_pool_slots": "remaining slots not tied to one fixed person, filled from whoever's on rotation.",
+  "pool_slots": [
+    ["MAIN", "GY", "Barista"],
+    ["MAIN", "GY", "Kitchen"],
+    ["MAIN", "AM", "Barista"],
+    ["MARFORI", "AM", "Barista"],
+    ["MINTAL", "AM", "Barista"],
+    ["MINTAL", "AM", "Kitchen"],
+    ["MINTAL", "PM", "Kitchen"]
+  ],
+  "_comment_on_leave": "name -> {since, until, note} or a list of those, for multi-day leave.",
+  "on_leave": {
+    "DELACRUZ": {"since": "2026-09-07", "until": "2026-09-11", "note": "family event out of town"},
+    "RIVERA": {"since": "2026-09-09", "until": "2026-09-09", "note": "personal matter"},
+    "NAVARRO": {"since": "2026-09-18", "until": "2026-09-20", "note": "family reunion"},
+    "CASTRO": {"since": "2026-09-22", "until": "2026-09-23", "note": "birthday"},
+    "MARQUEZ": {"since": "2026-09-22", "until": "2026-09-24", "note": "birthday"},
+    "FERNANDEZ": {"since": "2026-10-06", "until": "2026-10-07", "note": "personal matter"},
+    "AQUINO": [
+      {"since": "2026-10-07", "until": "2026-10-09", "note": "family event"},
+      {"since": "2026-10-12", "until": "2026-10-13", "note": "wedding"},
+      {"since": "2026-10-28", "until": "2026-10-29", "note": "family reunion"}
+    ],
+    "BAUTISTA": {"since": "2026-11-02", "until": "2026-11-02", "note": "personal matter"},
+    "SANTOS": [
+      {"since": "2026-11-05", "until": "2026-11-05", "note": "personal matter"},
+      {"since": "2026-11-20", "until": "2026-11-21", "note": "family reunion"}
+    ]
+  },
+  "_comment_locations_status": "branches temporarily or permanently closed.",
+  "locations_status": {
+    "TORIL": "closed",
+    "BISTRO": "closed"
+  },
+  "_comment_name_aliases": "shorthand or nickname used in schedule text -> canonical roster name.",
+  "name_aliases": {
+    "TET": "TORRES",
+    "JUN": "AQUINO",
+    "CHARM": "CASTRO",
+    "DANI": "MARQUEZ"
+  }
+}

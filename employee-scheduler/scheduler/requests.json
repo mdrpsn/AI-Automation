@@ -1,0 +1,7 @@
+{
+  "_comment": "Pending one-off requests for the next schedule generation. Each entry applies to a single 'date' (YYYY-MM-DD) and is cleared automatically by generate_schedule.py once that date has been generated -- the written .txt schedule is the permanent record after that. Types: 'day_off' (force this person off that day, ahead of the normal rotation) and 'location_lock' (if working, restrict them to one location: MAIN/MARFORI/MINTAL/TORIL/SASA/BISTRO). For multi-day leave, use roster.json's on_leave instead.",
+  "requests": [
+    {"date": "2026-08-30", "name": "REYES", "type": "day_off"},
+    {"date": "2026-08-30", "name": "DELACRUZ", "type": "location_lock", "location": "MARFORI"}
+  ]
+}

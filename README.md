@@ -38,3 +38,13 @@ with its own README and supporting files.
   with an AI classifier, and only pages sales for the hot ones — while auto-replying
   to everyone and logging every lead to a tracker sheet. Skips duplicate alerts for
   the same email resubmitting within 24 hours.
+
+- [employee-scheduler](employee-scheduler/) — draft-schedule generator for a
+  multi-location business running rotating shifts: fills fixed "anchor" roles
+  first, substitutes from recent history when an anchor is off, picks day-offs
+  by fairness without breaking role coverage, and honors one-off requests
+  (forced day-off, location lock) before clearing them. Sanitized version of a
+  scheduler run for a real multi-branch business — synthetic names and dates,
+  same logic. Two real bugs (crash on a person with multiple leave periods on
+  record) found and fixed by actually running all three scripts, not just
+  reading the code.
