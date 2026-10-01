@@ -71,8 +71,9 @@ function doPost(e) {
   return run_(body.action, body);
 }
 
-var PUBLIC = { board: board_, order: orderStatus_, reserve: reserve_, proof: proof_ };
-var ADMIN = { adminList: adminList_, approve: approve_, reject: reject_, release: release_, freeze: freeze_, draw: draw_ };
+// Looked up at call time (not load time) so a half-pasted file still lets setup() run.
+function publicActions_() { return { board: board_, order: orderStatus_, reserve: reserve_, proof: proof_ }; }
+function adminActions_() { return { adminList: adminList_, approve: approve_, reject: reject_, release: release_, freeze: freeze_, draw: draw_ }; }
 
 function run_(action, p) {
   var lock = LockService.getScriptLock();
@@ -82,10 +83,11 @@ function run_(action, p) {
     return json_({ ok: false, error: 'Server busy, please try again.' });
   }
   try {
-    if (PUBLIC[action]) return json_(PUBLIC[action](p));
-    if (ADMIN[action]) {
+    var pub = publicActions_(), adm = adminActions_();
+    if (pub[action]) return json_(pub[action](p));
+    if (adm[action]) {
       if (!pinOk_(p.pin)) { Utilities.sleep(700); return json_({ ok: false, error: 'Wrong PIN' }); }
-      return json_(ADMIN[action](p));
+      return json_(adm[action](p));
     }
     return json_({ ok: false, error: 'Unknown action' });
   } catch (err) {
