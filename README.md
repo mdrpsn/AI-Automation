@@ -48,3 +48,10 @@ with its own README and supporting files.
   same logic. Two real bugs (crash on a person with multiple leave periods on
   record) found and fixed by actually running all three scripts, not just
   reading the code.
+
+- [raffle-slot-form](raffle-slot-form/) — free, mobile-first web form for a numbered
+  paddle raffle: live 1–100 slot board, reservation with auto-expiring holds,
+  payment-screenshot upload, admin approve/reject queue, frozen final entry list
+  and a live draw. Static front end plus a Google Sheets + Apps Script backend, so it
+  costs nothing to host. Browser-tested end to end in demo mode (including a
+  double-booking race); the Apps Script backend needs a live dry run after deploy.
