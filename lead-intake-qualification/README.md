@@ -143,6 +143,14 @@ the real Gmail/Sheets/Gemini nodes.
   same tradeoff as the invoice automation — fine for one business voice,
   would move to a template store for multi-tenant use.
 
+## Security notes
+
+- **Data it touches:** names, emails, phone numbers and free-text messages from a public form, stored in the Leads Tracker sheet.
+- **Who can trigger it:** the webhook has **no authentication**, so anyone with the URL can POST a lead. Each fake lead can send an auto-reply to whatever address it supplies, and hot-looking ones page sales. The 24-hour dedupe is per email, so rotating addresses gets around it.
+- **Secrets:** Gmail, Sheets and Gemini credentials are left empty in `workflow.json` and live in n8n's credential store, not in the file.
+- **Prompt injection:** the lead's message goes straight into the classifier, so a crafted message can push itself to "hot". The worst case is an unnecessary sales alert: the AI only picks one of three tiers and cannot send anything itself.
+- **Before real use:** add a secret header or token to the webhook, add rate limiting or a CAPTCHA/honeypot on the form, and share the tracker sheet only with people who need it (it holds personal data).
+
 ## Built with
 
 n8n · Google Gemini (free tier) · Google Sheets

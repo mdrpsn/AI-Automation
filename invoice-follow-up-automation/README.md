@@ -86,3 +86,11 @@ silent skip). Swapped to a freshly-authorized credential and re-ran clean.
   businesses or multi-language support.
 - No SMS channel — email only. Adding SMS would mean adding a provider (e.g.
   Twilio) alongside the existing Gmail step, not restructuring the workflow.
+
+## Security notes
+
+- **Data it touches:** customer names, emails and invoice amounts in a Google Sheet. There is no AI step, so none of it goes to an AI provider.
+- **Who can trigger it:** only the daily schedule; there is no inbound endpoint. But **anyone who can edit the sheet controls who gets emailed and whether an invoice counts as paid**, so limit edit access.
+- **Wrong-recipient risk:** reminders go to whatever address is in the `CustomerEmail` column. A typo sends a payment reminder to a stranger, so check addresses when adding invoices.
+- **Secrets:** Gmail and Sheets credentials are left empty in `workflow.json`. In testing, an expired Gmail token made the run fail loudly instead of silently skipping, which is the failure mode you want.
+- **Before real use:** set the owner alert address, restrict sheet editors, and keep the sheet out of shared folders.

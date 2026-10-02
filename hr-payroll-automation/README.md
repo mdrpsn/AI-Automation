@@ -127,3 +127,10 @@ suite:
 - No pay stub document (PDF/print) generation, no direct-deposit / bank file
   export, and no manager approval step before a run is finalized — this
   build focused on getting the payroll calculation itself right first.
+
+## Security notes
+
+- **Data it touches:** names, positions, pay rates and tax withholding, the most sensitive data of any build here. The sample data is synthetic. Run output goes to `output/`, which is git-ignored so real payroll data can't be committed by accident.
+- **Who can call it:** the API has **no authentication** on any endpoint, including `GET /employees` (salary rates) and `POST /payroll/run`. That is fine on a laptop bound to localhost. **Do not expose it to a network as it is.**
+- **Integrity:** the ledger is a plain JSON file, so anyone with file access can edit year-to-date totals, and nothing records who changed what.
+- **Before real use:** add authentication (an API key at minimum) and HTTPS, restrict access to the data and ledger files, add a manager approval step, back up the ledger, and have an accountant check the statutory tables.

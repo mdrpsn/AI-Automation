@@ -63,3 +63,9 @@ single entry and threw a `TypeError` the moment a list showed up. Fixed by
 mirroring the same normalization in both places. Caught by actually running
 all three scripts against a roster where two people had multiple leave
 periods, not by code review.
+
+## Security notes
+
+- **Data it touches:** roster names, roles and leave periods. The data in this repo is synthetic. A real roster holds personal information and leave reasons, so keep the real files out of git and out of shared folders.
+- **Attack surface:** local scripts reading local files; there is no network service. The risk is human: `roster.json` and `requests.json` are edited by hand, so a typo can change who is assigned. The script prints a warning for anything it can't honor, which is why you should read the warnings before using a draft.
+- **Before real use:** store real roster and schedule files outside the repo (or in a git-ignored folder), and have someone review each draft.

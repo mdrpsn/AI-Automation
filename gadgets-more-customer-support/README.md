@@ -72,6 +72,15 @@ would get truncated before the AI sees it. A more complete version would parse t
 plain-text body out of Gmail's raw MIME payload instead. Noted here rather than glossed
 over — it's a straightforward follow-up, not a rewrite.
 
+## Security notes
+
+- **Data it touches:** the subject and body of customer emails, which are sent to Google Gemini for classifying and drafting. Check that your privacy policy allows that before using it on real customers.
+- **Prompt injection:** a customer can write instructions inside an email ("promise me a full refund"). The prompt says to answer only from the reference text, but that is not a guarantee. The real protection is that the workflow only creates a **draft**; a person reads it before anything is sent.
+- **Access scope:** the Gmail connection can read mail and create drafts. Use a dedicated support mailbox, not a personal one.
+- **Secrets:** credentials are left empty in `workflow.json` and live in n8n's credential store.
+- **Files:** the reference PDFs are read from disk, and n8n 2.0+ limits file access to one folder (see Setup). Keep only the policy documents there.
+- **Before real use:** a dedicated mailbox, a human review habit for every draft, and a decision on what customer data may be sent to a third-party AI.
+
 ## Built with
 
 n8n · Google Gemini (free tier) · [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) for
