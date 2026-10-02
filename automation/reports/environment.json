@@ -1,0 +1,71 @@
+{
+  "generated_at": "2026-10-02T14:24:41Z",
+  "capability_level": 0,
+  "level_meaning": "No n8n runtime: specification, workflow JSON authoring, static validation only",
+  "runtime_tests_possible": false,
+  "statuses": {
+    "claude_code_tools": {
+      "status": "AVAILABLE",
+      "detail": "16 tools observed"
+    },
+    "mcp_integrations": {
+      "status": "AVAILABLE",
+      "detail": "servers with observed callable tools; callability of each tool not probed",
+      "servers": [
+        "Claude_Docs",
+        "Gmail",
+        "Google_Drive",
+        "claude-code-remote",
+        "github"
+      ],
+      "configured_not_observed": []
+    },
+    "n8n_mcp_configured": {
+      "status": "NOT_CONFIGURED",
+      "detail": "no n8n server in config files"
+    },
+    "n8n_mcp_tools": {
+      "status": "UNAVAILABLE",
+      "detail": "no n8n tools observed; not configured"
+    },
+    "n8n_reachable": {
+      "status": "UNAVAILABLE",
+      "detail": "http://localhost:5678 -> URLError (default URL probed; N8N_API_URL unset)"
+    },
+    "n8n_api": {
+      "status": "NOT_CONFIGURED",
+      "detail": "env not set: N8N_API_URL, N8N_API_KEY"
+    },
+    "docker_cli": {
+      "status": "AVAILABLE",
+      "detail": "/usr/bin/docker"
+    },
+    "docker_daemon": {
+      "status": "UNAVAILABLE",
+      "detail": "failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /var/run/docker.sock: c"
+    },
+    "node": {
+      "status": "AVAILABLE",
+      "detail": "v22.22.0"
+    },
+    "npx": {
+      "status": "AVAILABLE",
+      "detail": "10.9.4"
+    },
+    "git": {
+      "status": "AVAILABLE",
+      "detail": "HEAD=HEAD; dirty",
+      "head": "HEAD",
+      "dirty": true,
+      "detached": true
+    },
+    "workflow_artifact": {
+      "status": "NOT_CONFIGURED",
+      "detail": "no workflow_path in state"
+    }
+  },
+  "notes": [
+    "Capability level 2/3 means runtime tests are POSSIBLE, not that they passed.",
+    "Absence of observed tools is evidence only for this session."
+  ]
+}

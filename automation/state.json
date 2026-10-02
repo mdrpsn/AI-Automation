@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "name": null,
+  "slug": null,
+  "state": "NEW",
+  "artifact_dir": null,
+  "workflow_path": null,
+  "capability_level": 0,
+  "environment_report": "2026-10-02T14:24:41Z",
+  "max_repair_iterations": 3,
+  "repair_iterations": 0,
+  "retest_pending": false,
+  "tested": false,
+  "verification": null,
+  "inspection": null,
+  "approval": null,
+  "activation": null,
+  "blocked": null,
+  "diagnoses": [],
+  "safety": {
+    "workflow_active": false,
+    "external_side_effects_enabled": false,
+    "credentials_modified": false,
+    "production_activation_authorized": false
+  },
+  "history": []
+}

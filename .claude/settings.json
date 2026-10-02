@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 automation/tools/*)",
+      "Bash(python3 -m unittest discover -s automation/tests*)"
+    ],
+    "ask": [
+      "mcp__Gmail__send_message",
+      "mcp__Gmail__reply",
+      "mcp__Gmail__forward",
+      "mcp__Google_Drive__share_file",
+      "Bash(npx n8n*)",
+      "Bash(docker run*)",
+      "Bash(docker compose*)"
+    ]
+  }
+}
